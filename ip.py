@@ -37,12 +37,15 @@ class IP:
         next_hop = None
         maior = -1
 
+        #Realza uma varredura em todos os valores da tabela para definir o next_hop
         for cidr, hop in self.tabela:
             split = cidr.split('/')
             cidr = split[0]
             nbits = int(split[1])
-            addr2, = struct.unpack('!I', str2addr(cidr))
+            addr_cidr = str2addr(cidr)
+            addr2, = struct.unpack('!I', addr_cidr)
 
+            #Desempate entre os endereços para atribuir o valor de next_hop para o que possuir prefixo mais longo
             if (addr2 >> 32 - nbits << 32 - nbits) == (addr >> 32 - nbits << 32 - nbits):
                 if (nbits > maior):
                     maior = nbits
@@ -95,4 +98,17 @@ class IP:
         next_hop = self._next_hop(dest_addr)
         # TODO: Assumindo que a camada superior é o protocolo TCP, monte o
         # datagrama com o cabeçalho IP, contendo como payload o segmento.
+
+        #Montagem do datagrama com checksum e adição do segmento a ser enviado
+        addr_meu_endereco = str2addr(self.meu_endereco)
+        addr_dest = str2addr(dest_addr)
+        protocolo = IPPROTO_TCP
+
+        datagrama = struct.pack('!BBHHHBBH4s4s', 69, 0, 20 + len(segmento), 10, 0, 64, protocolo, 0, addr_meu_endereco, addr_dest)
+
+        checksum = calc_checksum(datagrama)
+
+        datagrama = datagrama[:-10] + struct.pack('!H', checksum) + datagrama[-8:]
+        datagrama = datagrama + segmento
+
         self.enlace.enviar(datagrama, next_hop)
