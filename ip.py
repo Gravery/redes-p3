@@ -26,7 +26,26 @@ class IP:
         else:
             # atua como roteador
             next_hop = self._next_hop(dst_addr)
+
             # TODO: Trate corretamente o campo TTL do datagrama
+        
+            if ttl == 1:
+                payload_ttl1 = struct.pack('!BBHI', 11, 0, 0, 0) + datagrama[:28]
+                checksum = calc_checksum(payload_ttl1)
+                payload_ttl1 = struct.pack('!BBHI', 11, 0, checksum, 0) + datagrama[:28]
+                self.enviar(payload_ttl1, src_addr, IPPROTO_ICMP)
+                return -1
+            else:
+                ttl -= 1
+
+            src = str2addr(src_addr)
+            dst = str2addr(dst_addr)
+
+            hdr = struct.pack('!BBHHHBBH', 69, dscp|ecn, 20 + len(payload), identification, (flags<<13)|frag_offset, ttl, proto, 0) + src + dst
+            checksum = calc_checksum(hdr)
+            hdr = struct.pack('!BBHHHBBH', 69, dscp|ecn, 20 + len(payload), identification, (flags<<13)|frag_offset, ttl, proto, checksum) + src + dst
+            datagrama = hdr + payload
+
             self.enlace.enviar(datagrama, next_hop)
 
     def _next_hop(self, dest_addr):
@@ -90,7 +109,7 @@ class IP:
         """
         self.callback = callback
 
-    def enviar(self, segmento, dest_addr):
+    def enviar(self, segmento, dest_addr, protocolo=IPPROTO_TCP):
         """
         Envia segmento para dest_addr, onde dest_addr é um endereço IPv4
         (string no formato x.y.z.w).
@@ -100,15 +119,17 @@ class IP:
         # datagrama com o cabeçalho IP, contendo como payload o segmento.
 
         #Montagem do datagrama com checksum e adição do segmento a ser enviado
+        vihl = (4 << 4) | 5
+        dscp_ecn = 0 | 0
+        identification = 0
+        flags_frag_offset = (0 << 13) | 0
+        ttl = 64
         addr_meu_endereco = str2addr(self.meu_endereco)
         addr_dest = str2addr(dest_addr)
-        protocolo = IPPROTO_TCP
 
-        datagrama = struct.pack('!BBHHHBBH4s4s', 69, 0, 20 + len(segmento), 10, 0, 64, protocolo, 0, addr_meu_endereco, addr_dest)
-
-        checksum = calc_checksum(datagrama)
-
-        datagrama = datagrama[:-10] + struct.pack('!H', checksum) + datagrama[-8:]
-        datagrama = datagrama + segmento
+        hdr = struct.pack('!BBHHHBBH', vihl, dscp_ecn, 20 + len(segmento), identification, flags_frag_offset, ttl, protocolo, 0) + addr_meu_endereco + addr_dest
+        checksum = calc_checksum(hdr)
+        hdr = struct.pack('!BBHHHBBH', vihl, dscp_ecn, 20 + len(segmento), identification, flags_frag_offset, ttl, protocolo, checksum) + addr_meu_endereco + addr_dest
+        datagrama = hdr + segmento
 
         self.enlace.enviar(datagrama, next_hop)
