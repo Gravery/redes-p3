@@ -43,9 +43,9 @@ class IP:
             src = str2addr(src_addr)
             dst = str2addr(dst_addr)
 
-            hdr = struct.pack('!BBHHHBBH', 69, dscp|ecn, 20 + len(payload), identification, (flags<<13)|frag_offset, ttl, proto, 0) + src + dst
+            hdr = struct.pack('!BBHHHBBH', 69, 0, 20 + len(payload), 0, (0 << 13)|0, ttl, proto, 0) + src + dst
             checksum = calc_checksum(hdr)
-            hdr = struct.pack('!BBHHHBBH', 69, dscp|ecn, 20 + len(payload), identification, (flags<<13)|frag_offset, ttl, proto, checksum) + src + dst
+            hdr = struct.pack('!BBHHHBBH', 69, 0, 20 + len(payload), 0, (0 << 13)|0, ttl, proto, checksum) + src + dst
             datagrama = hdr + payload
 
             self.enlace.enviar(datagrama, next_hop)
